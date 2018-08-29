@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+command_cfg="$HOME/commands"
+help_file="$HOME/commands_help"
+DEBUG=false
+PARAM_CHAR='!!'
+SELF_REF='%self%'
+
+function process_cmd
+{
+    alias=$1
+    cmd=$(grep "^\(\w\+,\)*$alias\(,\w\+\)*\s\+" <<< $commands | awk '{$1 = ""; print}')
+    if [ ! "$cmd" ] ; then
+        echo "No such alias defined"
+        return
+    fi
+    params=$(grep -E -o "$PARAM_CHAR\w+" <<< $cmd) 
+    args=( "$@" )
+    arg_idx=1
+    if [[ "$params" ]]; then
+        while read -r param ; do
+            cmd=$(sed "s/$param/\"\${args[$arg_idx]}\"/g" <<< $cmd)
+            ((arg_idx++))
+        done <<< "$params"
+    fi
+    if (($# < $arg_idx)); then 
+        echo "Required parameters: $params" | tr '\n' ' ' && echo
+    else
+        $DEBUG && set -x
+        eval $cmd
+        $DEBUG && set +x
+    fi;
+}
+
+function map_commands
+{
+    mapping_file=$1
+    echo "Mapping file: $1"
+    $DEBUG && set -x
+    # Obtain a set of unique commands appearing in mapping file
+    grep -o '\(^\|,\)\w\+' $mapping_file | tr -d ',' | sort -u |\
+    while read -r cmd ; do
+        relevant_params=$(sed -n "s/^.*$cmd.*\s\+\(.*\)/\1/p" $mapping_file)
+        process_cmd $cmd <(echo -e "$relevant_params")
+    done
+    $DEBUG && set +x
+}
+
+helptext="Need to provide a command or alias.\n\
+        -h for general help,\n\
+        -h <command> for a description of a specific command,\n\
+        -c for a list of commands,\n
+        -a for commands and aliases,\n
+        -m <mapping file> - map a list of arguments as file input to one or more commands"
+
+if [ ! $1 ] ; then
+    echo -e $helptext
+    exit 0
+fi
+
+exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
+
+# ===== Preprocess command file ======
+# 1. Combine lines with terminating \ characters,
+#   - Create label :a
+#   - Remove next occurrence of terminating \
+#   - If nothing found, terminate sed script (T directive)
+#   - Join with next line (N = append)
+#   - Remove \n followed by leading space
+#   - If successfully done above, proceed to :a (continue)
+# 2. Remove comments
+# 3. Replace self references with full path to this executable
+# 3. Strip out blank lines, 
+
+commands=$(sed -e ':a;s/\\$//;T;N;s/\n\s*//;ta' $command_cfg |
+        sed -e "s/#.*$//g; s/$SELF_REF/$exec_escaped/g" | grep '^\s*$' -v)
+
+while getopts "achm:" o; do 
+    case "${o}" in
+        h) [[ $2 && -f $help_file ]] && sed -n "/^$2:/p" $help_file || 
+            echo -e $helptext; exit 0;;
+        c) awk -F'[, ]' '{print $1}' <<< $commands; exit ;;
+        a) awk '{print $1}' <<< $commands | sed 's/,/: /' ; exit ;;
+        m) mapping_file=${OPTARG}; map_commands $mapping_file ; exit ;;
+    esac 
+done
+
+process_cmd "$@"
+exit 0

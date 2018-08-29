@@ -1,0 +1,37 @@
+test: 
+test1: 
+test_ref: 
+test_all: 
+email: Open an email client
+emailsend: Send an email directly via command prompt.
+calendar: Open a calendar application.
+cal_appts_format: Helper routine. Don't call directly.
+cal_appts: List calendar appointments.
+cal_appts_w_notes: List calendar appointments including notes.
+cal_add: Helper routine. Don't call directly.
+cal_appt_add: Add an appointment to a calendar.
+cal_event_add: Add a whole-day event to a calendar.
+cal_upcoming_dates: Upcoming special dates for the next 7 days
+openurl: Open a URL in a web browser.
+search: Search for a query in a web browser
+weather: Proceed to the weather site.
+spotify: 
+spotify_play: 
+spotify_next: 
+spotify_back: 
+music: Open the music client.
+music_play: Music play/pause toggle.
+music_next: 
+music_back: 
+music_beg: Restart the current music track.
+lisp_eval: 
+ls_files_matching_tr: List current directory files matching pattern in reverse time order.
+last_file_matching: Last file in current directory matching pattern in reverse time order.
+last_file_having: Last file in current directory with matching contents.
+exec_file_predicate: Helper routine. Don't call directly.
+exec_files_matching: Open all files with matching pattern in name via indicated application.
+exec_last_file_matching: Open last file in reverse time order having a matching pattern in name with the indicated application.
+exec_last_file_having: Open last file in reverse time order having matching contents with the indicated application.
+exec_last_file: Open last file in reverse time order with the indicated application.
+sync: 
+tar_encrypt: 
