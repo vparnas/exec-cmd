@@ -32,26 +32,11 @@ function process_cmd
     fi;
 }
 
-function map_commands
-{
-    mapping_file=$1
-    echo "Mapping file: $1"
-    $DEBUG && set -x
-    # Obtain a set of unique commands appearing in mapping file
-    grep -o '\(^\|,\)\w\+' $mapping_file | tr -d ',' | sort -u |\
-    while read -r cmd ; do
-        relevant_params=$(sed -n "s/^.*$cmd.*\s\+\(.*\)/\1/p" $mapping_file)
-        process_cmd $cmd <(echo -e "$relevant_params")
-    done
-    $DEBUG && set +x
-}
-
 helptext="Need to provide a command or alias.\n\
         -h for general help,\n\
         -h <command> for a description of a specific command,\n\
         -c for a list of commands,\n
-        -a for commands and aliases,\n
-        -m <mapping file> - map a list of arguments as file input to one or more commands"
+        -a for commands and aliases"
 
 if [ ! $1 ] ; then
     echo -e $helptext
@@ -75,13 +60,12 @@ exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
 commands=$(sed -e ':a;s/\\$//;T;N;s/\n\s*//;ta' $command_cfg |
         sed -e "s/#.*$//g; s/$SELF_REF/$exec_escaped/g" | grep '^\s*$' -v)
 
-while getopts "achm:" o; do 
+while getopts "ach" o; do 
     case "${o}" in
         h) [[ $2 && -f $help_file ]] && sed -n "/^$2:/p" $help_file || 
             echo -e $helptext; exit 0;;
         c) awk -F'[, ]' '{print $1}' <<< $commands; exit ;;
         a) awk '{print $1}' <<< $commands | sed 's/,/: /' ; exit ;;
-        m) mapping_file=${OPTARG}; map_commands $mapping_file ; exit ;;
     esac 
 done
 
