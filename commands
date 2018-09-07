@@ -7,11 +7,11 @@ test_ref            %self% test one !!param2 three
 test_all,ta         %self% test1 && %self% test_ref two
 
 # Email
-email                   st -e neomutt
+email                   st -e neomutt & >/dev/null
 emailsend,sendmail,sm   neomutt -s !!subject !!recepient <<< !!body
 
 # Calendar
-calendar,cal            st -e calcurse
+calendar,cal            st -e calcurse & >/dev/null
 cal_appts_format        addtl_format=!!addtl_format && calcurse -r!!numdays \
                         --format-apt="- %S-%E %m\n$addtl_format" \
                         --format-recur-apt="- %S-%E* %m\n$addtl_format"
@@ -20,14 +20,14 @@ cal_appts_w_notes,an    %self% cal_appts_format "%N\n" !!numdays
 cal_add                 directive=!!directive && echo "$directive" >> \
                         ~/.calcurse/apts && echo -e "$directive\nAdded"
 cal_appt_add,caa,aa     year=!!year && month=!!month && day=!!day && \
-                        %self% calendar_add "$month/$day/$year @ !!start_time"\
+                        %self% cal_add "$month/$day/$year @ !!start_time"\
                         " -> $month/$day/$year @ !!endtime| "!!description
 cal_event_add,cea,ea    year=!!year && month=!!month && day=!!day && \
-                        %self% calendar_add "$month/$day/$year [1] "!!description
+                        %self% cal_add "$month/$day/$year [1] "!!description
 cal_upcoming_dates,ud   calcurse -c ~/.calcurse/special_dates -r7
 
 # Web browser
-openurl,ou,o        st -e w3m !!url
+openurl,ou,o        st -e w3m !!url & >/dev/null
 search,s            %self% openurl www.google.com/search?query=!!query
 weather,w           %self% search 'pogoda krakow'
 # site visit statistics
@@ -62,24 +62,21 @@ exec_last_file_having,elfh  %self% exec_file_predicate last_file_having !!regex 
 exec_last_file,elf          %self% exec_last_file_matching "" !!app
 
 # S3
-s3_cmd          /usr/local/bin/s3cmd !!cmd s3://!!container/!!dir !!params
+s3_cmd          /usr/local/bin/s3cmd !!cmd s3://!!container!!dir !!params
 s3_ls           %self% s3_cmd ls !!container !!dir ""
 s3_ls_recurse   %self% s3_cmd ls !!container !!dir -r
 
-# Backups
+# Security
+decrypt_view,dv gpg --decrypt --quiet !!encrypted_file | less
+
+# Backup Utilities
 sync            /usr/bin/rsync --archive --verbose --cvs-exclude --exclude='.*.git/' \
                 --ignore-missing-args --human-readable --update \
-                --prune-empty-dirs --progress --exclude='*.sw*p' "!!source" "!!dest" "!!addtnl_params" 
+                --prune-empty-dirs --progress --exclude='*.sw*p' "!!source" "!!dest" "!!addtnl_params"
 # --recursive option is not implied with --files-from
-sync_abs_paths_from_file    %self% sync / "!!dest" "--files-from=!!from_file --recursive"
+sync_abs_paths_from_file    from_file=!!from_file && %self% sync / "!!dest" "--files-from=$from_file --recursive"
 
 # !!destprefix: a full path w/ file prefix to be apended with date and extension
-tar_encrypt     /bin/tar -zcvf - --files-from !!backuplistfile | \
-                /usr/bin/gpg -e > "!!destprefix""_`date +\%Y\%m\%d`.tar.gz.gpg"
-tar_encrypt_path     %self% tar_encrypt <(echo !!path) !!destprefix 
-
-# Tar/Encrypt/Dropbox
-sync_data       %self% sync_abs_paths_from_file ~/backup/ !!file_list
-ted_data        %self% tar_encrypt !!file_list ~/Dropbox/Backups/backups 
-ted_config      %self% tar_encrypt !!file_list ~/Dropbox/Backups/backup_config_`/bin/hostname`
-
+tar_encrypt         /bin/tar -zcvf - --files-from !!backuplistfile | \
+                    /usr/bin/gpg -e > "!!destprefix""_`date +\%Y\%m\%d`.tar.gz.gpg"
+tar_encrypt_path    %self% tar_encrypt <(echo !!path) !!destprefix 

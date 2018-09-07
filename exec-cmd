@@ -10,19 +10,15 @@ function process_cmd
 {
     alias=$1
     cmd=$(grep "^\(\w\+,\)*$alias\(,\w\+\)*\s\+" <<< $commands | awk '{$1 = ""; print}')
-    if [ ! "$cmd" ] ; then
-        echo "No such alias defined"
-        return
-    fi
+    [ -z "$cmd" ] && echo "No such alias defined" && return
     params=$(grep -E -o "$PARAM_CHAR\w+" <<< $cmd) 
     args=( "$@" )
     arg_idx=1
-    if [[ "$params" ]]; then
-        while read -r param ; do
-            cmd=$(sed "s/$param/\"\${args[$arg_idx]}\"/g" <<< $cmd)
-            ((arg_idx++))
-        done <<< "$params"
-    fi
+    [[ "$params" ]] && 
+    while read -r param ; do
+        cmd=$(sed "s/$param/\"\${args[$arg_idx]}\"/g" <<< $cmd)
+        ((arg_idx++))
+    done <<< "$params"
     if (($# < $arg_idx)); then 
         echo "Required parameters: $params" | tr '\n' ' ' && echo
     else
@@ -38,10 +34,7 @@ helptext="Need to provide a command or alias.\n\
         -c for a list of commands,\n
         -a for commands and aliases"
 
-if [ ! $1 ] ; then
-    echo -e $helptext
-    exit 0
-fi
+[ -z $1 ] && echo -e $helptext && exit 0
 
 exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
 
