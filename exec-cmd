@@ -5,6 +5,7 @@ help_file="$HOME/commands_help"
 DEBUG=false
 PARAM_CHAR='!!'
 SELF_REF='%self%'
+[ -f ~/.exec-cmd.rc ] && . ~/.exec-cmd.rc
 
 function process_cmd
 {
