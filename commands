@@ -6,6 +6,7 @@ test1               %self% test one two three
 test_ref            %self% test one !!param2 three
 test_all,ta         %self% test1 && %self% test_ref two
 
+cmd_timeout,ct      num_secs=!!num_secs && ( !!cmd )& pid=$! ; sleep $num_secs ; disown $pid; kill -9 $pid
 # Email
 email                   st -e neomutt & >/dev/null
 emailsend,sendmail,sm   neomutt -s !!subject !!recepient <<< !!body
@@ -30,7 +31,6 @@ cal_upcoming_dates,ud   calcurse -c ~/.calcurse/special_dates -r7
 openurl,ou,o        st -e w3m !!url & >/dev/null
 search,s            %self% openurl www.google.com/search?query=!!query
 weather,w           %self% search 'pogoda krakow'
-# site visit statistics
 
 # Music - Spotify
 spotify             dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify \
@@ -40,11 +40,24 @@ spotify_next,sn     %self% spotify Next
 spotify_back,sb     %self% spotify Previous
 
 # Music - internal player
-music,m             cmus-remote -Q || st -e cmus
-music_play,pp,p     cmus-remote --pause
-music_next,mn       cmus-remote --next
-music_back,mb       cmus-remote --prev
-music_beg,beg       cmus-remote -k 00:00:00
+music,m             audio_control on
+music_play,pp,p     audio_control pause
+music_next,mn       audio_control next
+music_back,mb       audio_control prev
+music_beg,beg       audio_control replay
+
+# Generate, record, and set a timeout for a random topic
+record_rand_topic   audio_name="!!audio_prefix""_`date +%Y%m%d-%H%M-%S`" && \
+                    topic=$(shuf -n 1 !!topic_file) && \
+                    record -b 128K -a $audio_name && \
+                    echo "$audio_name: $topic" >> !!log_file && \
+                    timeout 60 sent <(echo $topic) || \
+                    timeout 30 sent <(echo -e "$topic\n...60s passed") || \
+                    timeout 30 sent <(echo -e "$topic\n...90s passed") || \
+                    echo "Time is up, finalize." | sent ; killrecording
+
+# Generate, record, and set a timeout for a Toastmasters table topic
+table_topic,tt      %self% record_rand_topic table_topic ~/Documents/Toastmasters/365-tt-questions.txt ~/table_topic_recordings
 
 # Programming
 lisp_eval,le        sbcl --noinform --non-interactive --eval !!sexp && echo
