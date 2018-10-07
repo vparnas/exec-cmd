@@ -57,10 +57,9 @@ record_rand_topic   audio_file="!!audio_prefix""_`date +%Y%m%d-%H%M-%S`" && \
                     echo "Time is up, finalize." | sent ; killrecording
 
 # Generate, record, and set a timeout for a Toastmasters table topic
-table_topic,tt      %self% record_rand_topic \
-                    ~/Documents/Recordings/Toastmasters/table_topic \
-                    ~/Documents/Recordings/Toastmasters/365-tt-questions.txt \
-                    ~/Documents/Recordings/Toastmasters/table_topic_recordings
+table_topic,tt      dir="$HOME/Documents/Recordings/Toastmasters" && \
+                    %self% record_rand_topic $dir/table_topic \
+                    $dir/365-tt-questions.txt $dir/table_topic_recordings
 
 # Programming
 lisp_eval,le        sbcl --noinform --non-interactive --eval !!sexp && echo
