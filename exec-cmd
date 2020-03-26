@@ -1,11 +1,19 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-command_cfg="$HOME/commands"
-help_file="$HOME/commands_help"
+if [ -d "$EXEC_CMD_DIR" ]; then 
+    command_cfg="$EXEC_CMD_DIR/commands"
+    help_file="$EXEC_CMD_DIR/commands_help" 
+else
+    command_cfg="$HOME/commands"
+    help_file="$HOME/commands_help"
+fi
+
 DEBUG=false
 PARAM_CHAR='!!'
 SELF_REF='%self%'
-[ -f ~/.exec-cmd.rc ] && . ~/.exec-cmd.rc
+
+[ -f "$EXEC_CMD_CFG" ] && . "$EXEC_CMD_CFG" ||
+    ([ -f ~/.exec-cmd.rc ] && . ~/.exec-cmd.rc)
 
 function process_cmd
 {
