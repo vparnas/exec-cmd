@@ -1,5 +1,7 @@
 # non-space-comma-separated aliases <space> command
 
+# NOTE: any !!parameters, if inside quotes, make sure they are double quotes
+
 # Testing routines
 test,t              echo "param1: !!param1, param2: !!param2, param3: !!param3"
 test1               %self% test one two three
@@ -8,29 +10,22 @@ test_all,ta         %self% test1 && %self% test_ref two
 
 cmd_timeout,ct      num_secs=!!num_secs && ( !!cmd )& pid=$! ; sleep $num_secs ; disown $pid; kill -9 $pid
 # Email
-email                   st -e neomutt & >/dev/null
-emailsend,sendmail,sm   neomutt -s !!subject !!recepient <<< !!body
+emailcompose,em         mutt -s !!subject !!recepient
+emailsend,sendmail,sm   mutt -s !!subject !!recepient <<< !!body
 
-# Calendar
-calendar,cal            st -e calcurse & >/dev/null
+# Calendar, contacts
 cal_appts_format        addtl_format=!!addtl_format && calcurse -r!!numdays \
                         --format-apt="- %S-%E %m\n$addtl_format" \
                         --format-recur-apt="- %S-%E* %m\n$addtl_format"
 cal_appts,appts,a       %self% cal_appts_format "" !!numdays
 cal_appts_w_notes,an    %self% cal_appts_format "%N\n" !!numdays
 cal_add                 directive=!!directive && echo "$directive" >> \
-                        ~/.calcurse/apts && echo -e "$directive\nAdded"
+                        $XDG_CONFIG_HOME/calcurse/apts && echo -e "$directive\nAdded"
 cal_appt_add,caa,aa     year=!!year && month=!!month && day=!!day && \
                         %self% cal_add "$month/$day/$year @ !!start_time"\
                         " -> $month/$day/$year @ !!endtime| "!!description
 cal_event_add,cea,ea    year=!!year && month=!!month && day=!!day && \
                         %self% cal_add "$month/$day/$year [1] "!!description
-cal_upcoming_dates,ud   calcurse -c ~/.calcurse/special_dates -r7
-
-# Web browser
-openurl,ou,o        st -e w3m !!url & >/dev/null
-search,s            %self% openurl www.google.com/search?query=!!query
-weather,w           %self% search 'pogoda krakow'
 
 # Music - Spotify
 spotify             dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify \
@@ -45,6 +40,40 @@ music_play,pp,p     audio_control pause
 music_next,mn       audio_control next
 music_back,mb       audio_control prev
 music_beg,beg       audio_control replay
+
+# Misc
+most_used_cmd,muc   history | awk '{print $2}' | sort | uniq -c | sort -nr | head -20
+commands,cm         $EDITOR $XDG_CONFIG_HOME/exec-cmd/commands
+# Search within records each starting with regex !!record_start_regex and containing !!pattern, returning entire record
+search_record_list  pattern=!!pattern && sed -n "/!!record_start_regex/{x;/$pattern/Ip;d}; \${x;G;/$pattern/Ip}; {H}"
+# For indented lists starting with a header at 0th column, search for content, returning the entire list item
+search_txt_list,stl %self% search_record_list !!pattern '^\w'
+md_html_preview     lowdown !!md_file | w3m -T text/html
+md_view_header_val  header=!!header && grep -iRl "^$header:" !!path | xargs sed -n "s/^$header:\s*//Ip"
+
+word_count,wc       tr -cs A-Za-z '\012' | tr A-Z a-z | egrep "\<.{!!min_chars,}\>" | sort | uniq -c | sort -nr | head -!!num_top_results
+cat_dir             find !!dir -type f -exec cat {} \+
+dir_word_count,dwc  %self% cat_dir !!dir | %self% word_count !!min_chars !!num_top_results
+dir_num_files       find !!dir -type f | wc -l
+#cpu_top             watch "ps -eo pcpu,args | sort -k 1 -r | head -4"
+cpu_top             ps axch -o cmd:15,%cpu --sort=-%cpu | head -5
+mem_top             ps axch -o cmd:15,%mem --sort=-%mem | head -5
+mem_free            free -h | awk '/^Mem/ {print "Avail: " $7 "/" $2}'
+# See https://stackoverflow.com/questions/17908555/printing-with-sed-or-awk-a-line-following-a-matching-pattern for explanation of below
+cpu_temp            sensors | awk 'f{print $2;f=0} /ACPI/{f=1}'
+wifi_status         echo -n "Wifi: "; \
+                    cat /sys/class/net/w*/operstate; \
+                    grep "^\s*w" /proc/net/wireless | awk '{ print int($3 * 100 / 70) "%" }'
+youtube_audio_search,yta    mpv --no-video --ytdl-format=bestaudio ytdl://ytsearch:!!search_term
+youtube_video_search,ytv    mpv ytdl://ytsearch:!!search_term
+youtube,yt          maxheight=!!maxheight && mpv --ytdl-format="bestvideo[height<=$maxheight]+bestaudio/best[height<=$maxheight]" \
+
+
+# Audio bitrate conversion
+audio_bitrate       input_audio=!!input_audio && ffmpeg -i $input_audio -ab \
+                    !!out_bitrate $(echo $input_audio | sed 's/\(\w\+\)\(\.\?\w*\)/\1_1\2/')
+audio_bitrate_64    %self% audio_bitrate !!input_audio 64K
+audio_bitrate_128   %self% audio_bitrate !!input_audio 128K
 
 # Generate, record, and set a timeout for a random topic
 record_rand_topic   audio_file="!!audio_prefix""_`date +%Y%m%d-%H%M-%S`" && \
@@ -77,20 +106,47 @@ exec_last_file_having,elfh  %self% exec_file_predicate last_file_having !!regex 
 exec_last_file,elf          %self% exec_last_file_matching "" !!app
 
 # S3
-s3_cmd          /usr/local/bin/s3cmd !!cmd s3://!!container!!dir !!params
-s3_ls           %self% s3_cmd ls !!container !!dir ""
-s3_ls_recurse   %self% s3_cmd ls !!container !!dir -r
+s3short     sed 's&.*s3://[^/]*/&&' # cut the leading bucket URI part
+s3l         s3cmd ls s3://!!s3_bucket!!s3_dir | %self% s3short
+s3lr        s3cmd ls -r s3://!!s3_bucket!!s3_dir | %self% s3short
+s3g         s3cmd get s3://!!s3_bucket!!object
+s3p         s3cmd put s3://!!s3_bucket!!object
 
+# Git
+# List all repository URLs
+git_rep_list        find !!root -regex '.*\.git/config*' -exec cat {} \; \
+					| sed -n 's/.*url = \(.*\)/\1/p'
+github_clone        git clone git@github.com:!!user/!!rep
+github_add_push_remote  git remote add origin git@github.com:!!user/!!rep && \
+                        git push -u origin --all
+git_prune           git reflog expire --expire=now --all && \
+                    git gc --aggressive --prune=now
+
+# Create a new repository from a subdirectory of an existing rep (w history)
+git_split_dir       newrep=!!newrep_dir && \
+                    dir_prefix=!!dir_prefix && \
+                    git subtree split --prefix=$dir_prefix --branch=split && \
+                    git init --bare $newrep && \
+                    git push $newrep split:master && \
+                    git branch -D split && \
+                    echo "Created bare rep $newrep." && \
+                    echo "Next: 'rm -r' or filter out $dir_prefix/ "
+# Eliminate all trace of a file and respective history in git
+git_elim_file_hist  git filter-branch -f --index-filter \
+                    "git rm --cached --ignore-unmatch !!filename" HEAD
+git_rebase          git rebase -i HEAD~!!last_num_commits
 # Security
 decrypt_view,dv gpg --decrypt --quiet !!encrypted_file | less
 
 # Backup Utilities
-sync            /usr/bin/rsync --archive --verbose --cvs-exclude --exclude='.*.git/' \
+sync            /usr/bin/rsync --archive --verbose --cvs-exclude \
                 --ignore-missing-args --human-readable --update \
                 --prune-empty-dirs --progress --exclude='*.sw*p' "!!source" "!!dest" "!!addtnl_params"
 # --recursive option is not implied with --files-from
-sync_abs_paths_from_file    from_file=!!from_file && %self% sync / "!!dest" "--files-from=$from_file --recursive"
+sync_paths_from_file    from_file=!!from_file && %self% sync "!!source" \
+						"!!dest" "--files-from=$from_file --recursive"
 
+# TAR/GPG encryption
 # !!destprefix: a full path w/ file prefix to be apended with date and extension
 tar_encrypt         /bin/tar -zcvf - --files-from !!backuplistfile | \
                     /usr/bin/gpg -e > "!!destprefix""_`date +\%Y\%m\%d`.tar.gz.gpg"
