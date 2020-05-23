@@ -45,8 +45,6 @@ helptext="Need to provide a command or alias.\n\
 
 [ -z $1 ] && echo -e $helptext && exit 0
 
-exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
-
 # ===== Preprocess command file ======
 # 1. Combine lines with terminating \ characters,
 #   - Create label :a
@@ -59,15 +57,15 @@ exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
 # 3. Replace self references with full path to this executable
 # 3. Strip out blank lines, 
 
-commands=$(sed -e ':a;s/\\$//;T;N;s/\n\s*//;ta' $command_cfg |
-        sed -e 's/^\s*#.*$//g; s/'"$SELF_REF/$exec_escaped/"'g' | grep '^\s*$' -v)
+commands=$(sed ':a;s/\\$//;T;N;s/\n\s*//;ta' $command_cfg |
+           sed 's/^\s*#.*$//g; s&'"$SELF_REF&$0&"'g; /^\s*$/d')
 
 while getopts "ach" o; do 
     case "${o}" in
         h) [[ $2 && -f $help_file ]] && sed -n "/^$2:/p" $help_file || 
             echo -e $helptext; exit 0;;
-        c) awk -F'[, ]' '{print $1}' <<< $commands; exit ;;
-        a) awk '{print $1}' <<< $commands | sed 's/,/: /' ; exit ;;
+        c) sed 's/[,[:space:]].*//' <<< $commands; exit ;;
+        a) sed 's/\s.*//; s/,/: /' <<< $commands ; exit ;;
     esac 
 done
 
