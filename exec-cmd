@@ -55,12 +55,12 @@ exec_escaped=$(sed 's/\//\\\//g' <<< $0) # Escape forward slashes
 #   - Join with next line (N = append)
 #   - Remove \n followed by leading space
 #   - If successfully done above, proceed to :a (continue)
-# 2. Remove comments
+# 2. Remove comments at line start
 # 3. Replace self references with full path to this executable
 # 3. Strip out blank lines, 
 
 commands=$(sed -e ':a;s/\\$//;T;N;s/\n\s*//;ta' $command_cfg |
-        sed -e "s/#.*$//g; s/$SELF_REF/$exec_escaped/g" | grep '^\s*$' -v)
+        sed -e 's/^\s*#.*$//g; s/'"$SELF_REF/$exec_escaped/"'g' | grep '^\s*$' -v)
 
 while getopts "ach" o; do 
     case "${o}" in
