@@ -9,6 +9,11 @@ test_ref            %self% test one !!param2 three
 test_all,ta         %self% test1 && %self% test_ref two
 
 cmd_timeout,ct      num_secs=!!num_secs && ( !!cmd )& pid=$! ; sleep $num_secs ; disown $pid; kill -9 $pid
+
+# pass helpers
+# Use tmux, not xclip for copying the password to a 45-second ephemeral buffer
+tmux-pass,pass      tmux set-buffer -b temp `pass show !!pass` ; (sleep 45 ; tmux delete-buffer -b temp) & >/dev/null
+
 # Email
 emailcompose,em         mutt -s !!subject !!recepient
 emailsend,sendmail,sm   mutt -s !!subject !!recepient <<< !!body
@@ -27,6 +32,10 @@ cal_appt_add,caa,aa     year=!!year && month=!!month && day=!!day && \
 cal_event_add,cea,ea    year=!!year && month=!!month && day=!!day && \
                         %self% cal_add "$month/$day/$year [1] "!!description
 
+# Weather
+weather,w           curl http://wttr.in/?lang=fr&m | less -S 
+weather_short,ws    curl wttr.in/?format=3\&m
+
 # Music - Spotify
 spotify             dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify \
                     /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.!!action >/dev/null
@@ -44,13 +53,18 @@ music_beg,beg       audio_control replay
 # Misc
 most_used_cmd,muc   history | awk '{print $2}' | sort | uniq -c | sort -nr | head -20
 commands,cm         $EDITOR $XDG_CONFIG_HOME/exec-cmd/commands
+
 # Search within records each starting with regex !!record_start_regex and containing !!pattern, returning entire record
-search_record_list  pattern=!!pattern && sed -n "/!!record_start_regex/{x;/$pattern/Ip;d}; \${x;G;/$pattern/Ip}; {H}"
+search_record_list,srl  pattern=!!pattern && sed -n "/!!record_start_regex/{x;/$pattern/Ip;d}; \${x;G;/$pattern/Ip}; {H}"
 # For indented lists starting with a header at 0th column, search for content, returning the entire list item
 search_txt_list,stl %self% search_record_list !!pattern '^\w'
+search_md_list,sml  %self% search_record_list !!pattern '^#'
+sml2                %self% sml !!pattern1 | %self% sml !!pattern2 
+
 md_html_preview     lowdown !!md_file | w3m -T text/html
 md_view_header_val  header=!!header && grep -iRl "^$header:" !!path | xargs sed -n "s/^$header:\s*//Ip"
 
+list_tags,lt        (grep -o '@\w\+' | sort | uniq -c) < !!file
 word_count,wc       tr -cs A-Za-z '\012' | tr A-Z a-z | egrep "\<.{!!min_chars,}\>" | sort | uniq -c | sort -nr | head -!!num_top_results
 cat_dir             find !!dir -type f -exec cat {} \+
 dir_word_count,dwc  %self% cat_dir !!dir | %self% word_count !!min_chars !!num_top_results
@@ -106,11 +120,10 @@ exec_last_file_having,elfh  %self% exec_file_predicate last_file_having !!regex 
 exec_last_file,elf          %self% exec_last_file_matching "" !!app
 
 # S3
-s3short     sed 's&.*s3://[^/]*/&&' # cut the leading bucket URI part
+s3short     sed 's&.*s3://[^/]*&&' # cut the leading bucket URI part
 s3l         s3cmd ls s3://!!s3_bucket!!s3_dir | %self% s3short
 s3lr        s3cmd ls -r s3://!!s3_bucket!!s3_dir | %self% s3short
 s3g         s3cmd get s3://!!s3_bucket!!object
-s3p         s3cmd put s3://!!s3_bucket!!object
 
 # Git
 # List all repository URLs
@@ -121,7 +134,6 @@ github_add_push_remote  git remote add origin git@github.com:!!user/!!rep && \
                         git push -u origin --all
 git_prune           git reflog expire --expire=now --all && \
                     git gc --aggressive --prune=now
-
 # Create a new repository from a subdirectory of an existing rep (w history)
 git_split_dir       newrep=!!newrep_dir && \
                     dir_prefix=!!dir_prefix && \
@@ -135,16 +147,22 @@ git_split_dir       newrep=!!newrep_dir && \
 git_elim_file_hist  git filter-branch -f --index-filter \
                     "git rm --cached --ignore-unmatch !!filename" HEAD
 git_rebase          git rebase -i HEAD~!!last_num_commits
+# Image manipulation
+img_shrink_if_gt    size=!!max_size && mogrify "!!pattern[$size""x""$size"">]"
+
 # Security
 decrypt_view,dv gpg --decrypt --quiet !!encrypted_file | less
 
-# Backup Utilities
+# Backup/sync functions
 sync            /usr/bin/rsync --archive --verbose --cvs-exclude \
                 --ignore-missing-args --human-readable --update \
                 --prune-empty-dirs --progress --exclude='*.sw*p' "!!source" "!!dest" "!!addtnl_params"
 # --recursive option is not implied with --files-from
 sync_paths_from_file    from_file=!!from_file && %self% sync "!!source" \
 						"!!dest" "--files-from=$from_file --recursive"
+# Sync the src with only the files contained in the dest (using --files-from is quicker and safer than --existing)
+sync_existing_only  src="!!src" dest="!!dest" && %self% sync "$src" "$dest" \
+                        --files-from=<(find "$dest" -type f -printf '%P\n')
 
 # TAR/GPG encryption
 # !!destprefix: a full path w/ file prefix to be apended with date and extension
