@@ -54,18 +54,22 @@ music_beg,beg       audio_control replay
 most_used_cmd,muc   history | awk '{print $2}' | sort | uniq -c | sort -nr | head -20
 commands,cm         $EDITOR $XDG_CONFIG_HOME/exec-cmd/commands
 
-# Search within records each starting with regex !!record_start_regex and containing !!pattern, returning entire record
-search_record_list,srl  pattern=!!pattern && sed -n "/!!record_start_regex/{x;/$pattern/Ip;d}; \${x;G;/$pattern/Ip}; {H}"
+# Search within records each starting with regex !!rec_start_regex and containing !!pattern, returning entire record
+search_txt_record,srl   pattern=!!pattern && \
+                        sed -n "/!!rec_start_regex/{x;/$pattern/Ip;d}; \${x;G;/$pattern/Ip}; {H}"
 # For indented lists starting with a header at 0th column, search for content, returning the entire list item
-search_txt_list,stl %self% search_record_list !!pattern '^\w'
-search_md_list,sml  %self% search_record_list !!pattern '^#'
-sml2                %self% sml !!pattern1 | %self% sml !!pattern2 
+search_txt_list,stl     %self% search_txt_record !!pattern '^\w'
+stl2                    %self% stl !!pattern1 | %self% stl !!pattern2 
+search_md_section,smd   %self% search_txt_record !!pattern '^#'
+sml2                    %self% smd !!pattern1 | %self% smd !!pattern2 
 
 md_html_preview     lowdown !!md_file | w3m -T text/html
 md_view_header_val  header=!!header && grep -iRl "^$header:" !!path | xargs sed -n "s/^$header:\s*//Ip"
 
 list_tags,lt        (grep -o '@\w\+' | sort | uniq -c) < !!file
-word_count,wc       tr -cs A-Za-z '\012' | tr A-Z a-z | egrep "\<.{!!min_chars,}\>" | sort | uniq -c | sort -nr | head -!!num_top_results
+word_count,wc       tr -cs A-Za-z '\012' | tr A-Z a-z | \
+                    egrep "\<.{!!min_chars,}\>" | sort | \
+                    uniq -c | sort -nr | head -!!num_top_results
 cat_dir             find !!dir -type f -exec cat {} \+
 dir_word_count,dwc  %self% cat_dir !!dir | %self% word_count !!min_chars !!num_top_results
 dir_num_files       find !!dir -type f | wc -l
@@ -80,7 +84,9 @@ wifi_status         echo -n "Wifi: "; \
                     grep "^\s*w" /proc/net/wireless | awk '{ print int($3 * 100 / 70) "%" }'
 youtube_audio_search,yta    mpv --no-video --ytdl-format=bestaudio ytdl://ytsearch:!!search_term
 youtube_video_search,ytv    mpv ytdl://ytsearch:!!search_term
-youtube,yt          maxheight=!!maxheight && mpv --ytdl-format="bestvideo[height<=$maxheight]+bestaudio/best[height<=$maxheight]" \
+youtube,yt          maxheight=!!maxheight && \
+                    mpv --ytdl-format="bestvideo[height<=$maxheight]+bestaudio/best[height<=$maxheight]" \
+                    !!url
 
 
 # Audio bitrate conversion
@@ -134,7 +140,7 @@ github_add_push_remote  git remote add origin git@github.com:!!user/!!rep && \
                         git push -u origin --all
 git_prune           git reflog expire --expire=now --all && \
                     git gc --aggressive --prune=now
-# Create a new repository from a subdirectory of an existing rep (w history)
+# Extract a repository subfolder to a fresh repository, all contained files now at the root, history preserved: 
 git_split_dir       newrep=!!newrep_dir && \
                     dir_prefix=!!dir_prefix && \
                     git subtree split --prefix=$dir_prefix --branch=split && \
@@ -147,7 +153,9 @@ git_split_dir       newrep=!!newrep_dir && \
 git_elim_file_hist  git filter-branch -f --index-filter \
                     "git rm --cached --ignore-unmatch !!filename" HEAD
 git_rebase          git rebase -i HEAD~!!last_num_commits
+
 # Image manipulation
+# Shrink an image or a set of images to a maximum dimension size of !!max_size, maintaining the aspect ratio:
 img_shrink_if_gt    size=!!max_size && mogrify "!!pattern[$size""x""$size"">]"
 
 # Security
