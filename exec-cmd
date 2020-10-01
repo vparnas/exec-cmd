@@ -1,19 +1,23 @@
 #!/bin/bash
 
-if [ -d "$EXEC_CMD_DIR" ]; then 
-    command_cfg="$EXEC_CMD_DIR/commands"
-    help_file="$EXEC_CMD_DIR/commands_help" 
-else
-    command_cfg="$HOME/commands"
-    help_file="$HOME/commands_help"
-fi
-
 DEBUG=false
 PARAM_CHAR='!!'
 SELF_REF='%self%'
 
-[ -f "$EXEC_CMD_CFG" ] && . "$EXEC_CMD_CFG" ||
-    ([ -f ~/.exec-cmd.rc ] && . ~/.exec-cmd.rc)
+for cfg in "$EXEC_CMD_CFG" "$HOME/.config/exec-cmd/exec-cmd.rc" "$HOME/.exec-cmd.rc"; do
+    [ -f "$cfg" ] && . "$cfg" && break
+done
+
+for dir in "$EXEC_CMD_DIR" "$HOME/.config/exec-cmd" "$HOME"; do
+    if [ -d "$dir" ]; then 
+        command_cfg="$dir/commands"
+        help_file="$dir/commands_help"
+        $DEBUG && echo "Using $command_cfg"
+        break
+    fi
+done
+
+[ ! -f "$command_cfg" ] && echo "$command_cfg doesn't exist" && exit 1
 
 function process_cmd
 {
